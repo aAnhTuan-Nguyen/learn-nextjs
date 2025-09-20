@@ -13,31 +13,57 @@ import {
   FormMessage
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { RegisterBody, RegisterBodyType } from '@/schemaValidations/auth.schema'
+import { LoginBody, LoginBodyType } from '@/schemaValidations/auth.schema'
 import envConfig from '@/config'
+import { toast } from 'sonner'
 
-export default function RegisterForm() {
+export default function LoginForm() {
   // 1. Define your form.
-  const form = useForm<RegisterBodyType>({
-    resolver: zodResolver(RegisterBody), // Dùng để kết nối Zod với React Hook Form, giúp xác thực dữ liệu theo schema
+  const form = useForm<LoginBodyType>({
+    resolver: zodResolver(LoginBody), // Dùng để kết nối Zod với React Hook Form, giúp xác thực dữ liệu theo schema
     defaultValues: {
-      name: '',
       email: '',
-      password: '',
-      confirmPassword: ''
+      password: ''
     }
   })
 
   // 2. Define a submit handler.
-  async function onSubmit(values: RegisterBodyType) {
-    const result = await fetch(`${envConfig.NEXT_PUBLIC_API_ENDPOINT}/auth/register`, {
-      body: JSON.stringify(values),
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      method: 'POST'
-    }).then((res) => res.json())
-    console.log(result)
+  async function onSubmit(values: LoginBodyType) {
+    try {
+      const res = await fetch(`${envConfig.NEXT_PUBLIC_API_ENDPOINT}/auth/login`, {
+        body: JSON.stringify(values),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        method: 'POST'
+      })
+      const payload = await res.json() // tại sao phải await ở đây?
+      // vì res.json() trả về một Promise, nên cần await để lấy kết quả thực sự
+      const data = {
+        status: res.status,
+        payload
+      }
+      if (!res.ok) {
+        throw data
+      }
+      toast.success(data.payload.message)
+    } catch (error: any) {
+      const errors = error.payload?.errors as {
+        field: string
+        message: string
+      }[]
+      const status = error.status as number
+      if (status === 422 && errors) {
+        errors.forEach((error) => {
+          form.setError(error.field as 'email' | 'password', {
+            type: 'server',
+            message: error.message
+          })
+        })
+      } else {
+        toast.error(error.payload?.message || 'Lỗi')
+      }
+    }
   }
   return (
     <Form {...form}>
@@ -47,19 +73,6 @@ export default function RegisterForm() {
         })}
         className='space-y-2 max-w-[600px] w-full'
       >
-        <FormField
-          control={form.control}
-          name='name'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input placeholder='John Doe' {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
         <FormField
           control={form.control}
           name='email'
@@ -86,22 +99,9 @@ export default function RegisterForm() {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name='confirmPassword'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Confirm Password</FormLabel>
-              <FormControl>
-                <Input type='password' placeholder='••••••••' {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <Button type='submit' className='mt-4 w-full'>
-          Register
+          Login
         </Button>
       </form>
     </Form>
