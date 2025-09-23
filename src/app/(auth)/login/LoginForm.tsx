@@ -16,8 +16,10 @@ import { Input } from '@/components/ui/input'
 import { LoginBody, LoginBodyType } from '@/schemaValidations/auth.schema'
 import envConfig from '@/config'
 import { toast } from 'sonner'
+import { useAppContext } from '@/app/AppProvider'
 
 export default function LoginForm() {
+  const { setToken } = useAppContext()
   // 1. Define your form.
   const form = useForm<LoginBodyType>({
     resolver: zodResolver(LoginBody), // Dùng để kết nối Zod với React Hook Form, giúp xác thực dữ liệu theo schema
@@ -47,6 +49,18 @@ export default function LoginForm() {
         throw data
       }
       toast.success(data.payload.message)
+
+      const resultFromNextServer = await fetch('/api/auth', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const resultFromNextServerData = await resultFromNextServer.json()
+      console.log('Next.js Server Response:', resultFromNextServerData) // Kiểm tra dữ liệu nhận được từ server Next.js
+      setToken(resultFromNextServerData.data?.token || '')
     } catch (error: any) {
       const errors = error.payload?.errors as {
         field: string
@@ -61,7 +75,7 @@ export default function LoginForm() {
           })
         })
       } else {
-        toast.error(error.payload?.message || 'Lỗi')
+        toast.error(error.payload?.message || error.message)
       }
     }
   }
